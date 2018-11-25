@@ -64,12 +64,14 @@ class HIP:
     def rgb_to_gray(self):
         if self.image.ndim == 3:
             self.image = cv2.cvtColor(self.image, cv2.COLOR_RGB2GRAY)
+        return self
 
     def binarize(self, threshold = 128):
         if self.image.ndim == 3:
             self.rgb_to_gray()
         self.image[self.image >= threshold] = 255
         self.image[self.image < threshold] = 0
+        return self
 
     def resize(self, new_size = None, ratio=(.1,.2), interpolation = cv2.INTER_AREA, use_ratio = False):
 
@@ -80,6 +82,57 @@ class HIP:
                 tmp_size = new_size
         if tmp_size is not None:
             self.image = cv2.resize(self.image, tmp_size, interpolation=interpolation)
+        return self
 
+#     second pahse
 
+    def crop(self, crop_size, extended_border=False):
+        # crop_size = [top, left, height, width]
+        crop_size[0] = max(0, crop_size[0])
+        crop_size[0] = min(self.image.shape[0] - 1, crop_size[0])
+
+        crop_size[1] = max(0, crop_size[1])
+        crop_size[1] = min(self.image.shape[1] - 1, crop_size[1])
+
+        if (crop_size[0] + crop_size[2] > self.image.shape[0]):
+            crop_size[2] = self.image.shape[0] - crop_size[0]
+
+        if (crop_size[1] + crop_size[3] > self.image.shape[1]):
+            crop_size[3] = self.image.shape[1] - crop_size[1]
+        self.image = self.image[crop_size[0]:crop_size[0]+crop_size[2], crop_size[1]:crop_size[1]+crop_size[3]]
+        return self
+
+    def flip(self, mode = 0):
+#         mode 0 (horizontal), 1(vertical), -1 (both)
+        if mode not in set([0, 1, -1]):
+            print("the mode must be either horizontal = 0, vertical = 1, both = -1")
+            return self
+        self.image = cv2.flip(self.image, mode)
+        return self
+
+    def rotate(self, degree=0, rotate_center=None):
+        row, col = self.image.shape[0], self.image.shape[1]
+        if rotate_center is None:
+            center = tuple(np.array([row, col]) / 2)
+        else:
+            center = tuple(rotate_center)
+        rot_mat = cv2.getRotationMatrix2D(center, degree, 1.0)
+        self.image = cv2.warpAffine(self.image, rot_mat, (col, row))
+        return self
+
+    def zero_padd(self, padd_size=[10, 0, 30, 30]):
+        # padd_size=[left, right, top, bottom]
+
+        left_zeros = np.ones((self.image.shape[0], padd_size[0], 3), np.uint8)
+        self.image = np.concatenate((left_zeros, self.image), axis=1)
+
+        right_zeros = np.ones((self.image.shape[0], padd_size[1], 3), np.uint8)
+        self.image = np.concatenate((self.image, right_zeros), axis=1)
+
+        top_zeros = np.ones((padd_size[2], self.image.shape[1], 3), np.uint8)
+        self.image = np.concatenate((top_zeros, self.image), axis=0)
+
+        bottom_zeros = np.ones((padd_size[3], self.image.shape[1], 3), np.uint8)
+        self.image = np.concatenate((self.image, bottom_zeros), axis=0)
+        return self
 
