@@ -1,6 +1,6 @@
 from HIP import *
 
-path = "/home/hamed/MyOffice/pythonPRojects/HIP/lena.png"
+path = "add the path to the image here, will fix it soon"
 
 test = HIP(path=path)
 print(test.height())
