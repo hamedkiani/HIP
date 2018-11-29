@@ -1,12 +1,15 @@
 from HIP import *
 
-path = "add the path to the image here, will fix it soon"
-
+# path to image
+path = sys.argv[1]
+print("path is {}".format(path))
 test = HIP(path=path)
 print(test.height())
 print(test.width())
 print(test.channel())
 test.imshow()
+test.noisy()
+test.imshow("noisy")
 temp = test.get_image()
 cv2.imshow("copy", temp)
 

@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import cv2
+import sys, getopt
 
 class HIP:
     def __init__(self, image=None, path=None):
@@ -135,4 +136,28 @@ class HIP:
         bottom_zeros = np.ones((padd_size[3], self.image.shape[1], 3), np.uint8)
         self.image = np.concatenate((self.image, bottom_zeros), axis=0)
         return self
+
+    def noisy(self, noise = "salt&pepper"):
+
+        if noise == "salt&pepper":
+            salt_rate = 0.5
+            pepper_rate = 1. - salt_rate
+            amount = 0.01
+
+            num_salt = np.ceil(amount * self.image.size * salt_rate)
+            num_pepper = np.ceil(amount * self.image.size * pepper_rate)
+            coords = [np.random.randint(0, i - 1, int(num_salt))
+                      for i in self.image.shape]
+            coords_p = [np.random.randint(0, i - 1, int(num_pepper))
+                      for i in self.image.shape]
+            if self.image.ndim == 3:
+                self.image[coords[0], coords[1],:] = (255, 255, 255)
+                self.image[coords_p[0], coords_p[1], :] = (0, 0, 0)
+            else:
+                self.image[coords] = 255
+                self.image[coords_p] = 0
+            return self
+
+
+# more noise types will be added!
 
