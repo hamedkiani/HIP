@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import cv2
-import sys, getopt
+
 
 class HIP:
     def __init__(self, image=None, path=None):
@@ -12,6 +12,7 @@ class HIP:
             self.image = image
         else:
             print("the path {} does not exist".format(path))
+        history = []
 
     def load(self, image=None, path=None):
         self.image = image
@@ -27,7 +28,6 @@ class HIP:
             cv2.imshow(tag, self.image)
         else:
             print("the image is not loaded does not exist")
-
 
     def height(self):
         if self.image is not None:
@@ -54,9 +54,6 @@ class HIP:
         if self.image is None:
             print("there is not image to be saved!")
             return False
-        # if path is None or not os.path.isfile(path):
-        #     print("the path is either None or does not exist")
-        #     return False
         cv2.imwrite(path, self.image)
 
     def get_image(self):
@@ -84,8 +81,6 @@ class HIP:
         if tmp_size is not None:
             self.image = cv2.resize(self.image, tmp_size, interpolation=interpolation)
         return self
-
-#     second pahse
 
     def crop(self, crop_size, extended_border=False):
         # crop_size = [top, left, height, width]
@@ -137,27 +132,38 @@ class HIP:
         self.image = np.concatenate((self.image, bottom_zeros), axis=0)
         return self
 
-    def noisy(self, noise = "salt&pepper"):
-
+    def add_noise(self, noise="salt&pepper"):
+        if self.image.ndim > 2:
+            row, col, ch = self.image.shape
+        else:
+            row, col = self.image.shape
+            ch = 0
         if noise == "salt&pepper":
             salt_rate = 0.5
             pepper_rate = 1. - salt_rate
             amount = 0.01
-
             num_salt = np.ceil(amount * self.image.size * salt_rate)
             num_pepper = np.ceil(amount * self.image.size * pepper_rate)
             coords = [np.random.randint(0, i - 1, int(num_salt))
                       for i in self.image.shape]
             coords_p = [np.random.randint(0, i - 1, int(num_pepper))
-                      for i in self.image.shape]
+                        for i in self.image.shape]
             if self.image.ndim == 3:
                 self.image[coords[0], coords[1],:] = (255, 255, 255)
                 self.image[coords_p[0], coords_p[1], :] = (0, 0, 0)
             else:
                 self.image[coords] = 255
                 self.image[coords_p] = 0
-            return self
 
-
-# more noise types will be added!
-
+        elif noise == "gauss":
+            mean = 0.5
+            var = 0.5
+            sigma = var ** 0.5
+            if ch:
+                gauss = np.random.normal(mean, sigma, (row, col, ch))
+            else:
+                gauss = np.random.normal(mean, sigma, (row, col))
+            gauss.reshape(self.image.shape)
+            noisy_image = self.image + gauss
+            self.image = noisy_image.astype(np.uint8)
+        return self
