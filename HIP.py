@@ -12,7 +12,6 @@ class HIP:
             self.image = image
         else:
             print("the path {} does not exist".format(path))
-        history = []
 
     def load(self, image=None, path=None):
         self.image = image
@@ -99,7 +98,7 @@ class HIP:
         return self
 
     def flip(self, mode = 0):
-#         mode 0 (horizontal), 1(vertical), -1 (both)
+        # mode 0 (horizontal), 1(vertical), -1 (both)
         if mode not in set([0, 1, -1]):
             print("the mode must be either horizontal = 0, vertical = 1, both = -1")
             return self
@@ -167,3 +166,64 @@ class HIP:
             noisy_image = self.image + gauss
             self.image = noisy_image.astype(np.uint8)
         return self
+
+    def gradient(self, visualize = False):
+        image = self.image
+        if image.ndim > 2:
+            image = self.rgb_to_gray()
+        dx = np.zeros(shape=image.shape, dtype=np.uint8)
+        dy = np.zeros(shape=image.shape, dtype=np.uint8)
+
+        rows = [row + 1 for row in range(image.shape[0] - 2)]
+        cols = [col + 1 for col in range(image.shape[1] - 2)]
+
+        for row in rows:
+            for col in cols:
+                dx[row][col] = abs(-1.0 * image[row][col-1] + 1.0 * image[row][col+1])
+                dy[row][col] = abs(-1.0 * image[row-1][col] + 1.0 * image[row+1][col])
+
+        if visualize:
+            cv2.imshow("dx", dx)
+            cv2.imshow("dy", dy)
+            cv2.waitKey(0)
+        return dx, dy
+
+    def magnitude(self):
+        dx, dy = self.gradient()
+        mag = np.sqrt(dx**2 + dy**2)
+        mag = (mag - np.amin(mag) / (np.amax(mag)) - np.amin(mag))
+        return mag.astype(np.uint8)
+
+    def edge(self):
+        gx = np.array([[1, 0, -1],
+                       [2, 0, -2],
+                       [1, 0, -1]])
+        gy = np.transpose(gx)
+        image = self.image
+        if image.ndim > 2:
+            image = self.rgb_to_gray()
+        rows = [row + 1 for row in range(image.shape[0] - 2)]
+        cols = [col + 1 for col in range(image.shape[1] - 2)]
+
+        edge_image = np.zeros(shape=image.shape, dtype=np.uint8)
+        for row in rows:
+            for col in cols:
+                dx = abs(
+                    gx[0][0] * image[row - 1][col - 1] + gx[0][1] * image[row - 1][col] + gx[0][2] * image[row - 1][
+                        col + 1]
+                    + gx[1][0] * image[row][col - 1] + gx[1][1] * image[row][col] + gx[1][2] * image[row][col + 1]
+                    + gx[2][0] * image[row + 1][col] + gx[2][1] * image[row + 1][col] + gx[2][2] * image[row + 1][
+                        col + 1])
+
+                dy = abs(
+                    gy[0][0] * image[row - 1][col - 1] + gy[0][1] * image[row - 1][col] + gy[0][2] * image[row - 1][
+                        col + 1]
+                    + gy[1][0] * image[row][col - 1] + gy[1][1] * image[row][col] + gy[1][2] * image[row][col + 1]
+                    + gy[2][0] * image[row + 1][col] + gy[2][1] * image[row + 1][col] + gy[2][2] * image[row + 1][
+                        col + 1])
+
+                edge_image[row][col] = np.sqrt(dx**2 + dy**2)
+        return edge_image
+
+
+
