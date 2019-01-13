@@ -1,32 +1,43 @@
 import numpy as np
 import os
 import cv2
+import copy
+
+# copyright @ Hamed Kiani Galoogahi- 2018
+# email: hamedkg@gmail.com
 
 
 class HIP:
     def __init__(self, image=None, path=None):
         self.image = image
         self.path = path
+        self.original_image = None
         if os.path.isfile(path):
             image = cv2.imread(path)
             self.image = image
+            self.original_image = copy.deepcopy(image)
         else:
             print("the path {} does not exist".format(path))
 
     def load(self, image=None, path=None):
         self.image = image
+        self.original_image = None
         self.path = path
         if os.path.isfile(path):
             image = cv2.imread(path)
             self.image = image
+            self.original_image = copy.deepcopy(image)
         else:
             print("the path {} does not exist".format(path))
+
+    def reset(self):
+        self.image = copy.deepcopy(self.original_image)
 
     def imshow(self, tag="image"):
         if self.image is not None:
             cv2.imshow(tag, self.image)
         else:
-            print("the image is not loaded does not exist")
+            print("the image is not loaded!")
 
     def height(self):
         if self.image is not None:
@@ -42,14 +53,11 @@ class HIP:
 
     def channel(self):
         if self.image is not None:
-            if self.image.ndim == 3:
-                return 3
-            else:
-                return 2
+            return self.image.ndim
         else:
             return 0
 
-    def save_to(self, path=None):
+    def save_as(self, path=None):
         if self.image is None:
             print("there is not image to be saved!")
             return False
@@ -59,45 +67,45 @@ class HIP:
         return self.image
 
     def rgb_to_gray(self):
-        if self.image.ndim == 3:
+        if self.channel() == 3:
             self.image = cv2.cvtColor(self.image, cv2.COLOR_RGB2GRAY)
         return self
 
-    def binarize(self, threshold = 128):
-        if self.image.ndim == 3:
+    def binarize(self, threshold=128):
+        if self.channel() == 3:
             self.rgb_to_gray()
         self.image[self.image >= threshold] = 255
         self.image[self.image < threshold] = 0
         return self
 
-    def resize(self, new_size = None, ratio=(.1,.2), interpolation = cv2.INTER_AREA, use_ratio = False):
-
+    def resize(self, new_size=None, ratio=(0.5, 0.5), interpolation=cv2.INTER_AREA, use_ratio=False):
         if self.image is not None:
             if use_ratio:
+                assert(np.all([r >= 0 for r in ratio]))
                 tmp_size = (int(ratio[0]*self.image.shape[0]), int(ratio[1]*self.image.shape[1]))
-            else:
+            elif new_size is not None:
+                assert(np.all([s >= 0 for s in new_size]))
                 tmp_size = new_size
+            else:
+                print("no resize ration neither a new size is provided.")
         if tmp_size is not None:
             self.image = cv2.resize(self.image, tmp_size, interpolation=interpolation)
         return self
 
-    def crop(self, crop_size, extended_border=False):
+    def crop(self, crop_size):
         # crop_size = [top, left, height, width]
         crop_size[0] = max(0, crop_size[0])
         crop_size[0] = min(self.image.shape[0] - 1, crop_size[0])
-
         crop_size[1] = max(0, crop_size[1])
         crop_size[1] = min(self.image.shape[1] - 1, crop_size[1])
-
         if (crop_size[0] + crop_size[2] > self.image.shape[0]):
             crop_size[2] = self.image.shape[0] - crop_size[0]
-
         if (crop_size[1] + crop_size[3] > self.image.shape[1]):
             crop_size[3] = self.image.shape[1] - crop_size[1]
         self.image = self.image[crop_size[0]:crop_size[0]+crop_size[2], crop_size[1]:crop_size[1]+crop_size[3]]
         return self
 
-    def flip(self, mode = 0):
+    def flip(self, mode=0):
         # mode 0 (horizontal), 1(vertical), -1 (both)
         if mode not in set([0, 1, -1]):
             print("the mode must be either horizontal = 0, vertical = 1, both = -1")
@@ -110,29 +118,32 @@ class HIP:
         if rotate_center is None:
             center = tuple(np.array([row, col]) / 2)
         else:
+            map(int, rotate_center)
             center = tuple(rotate_center)
         rot_mat = cv2.getRotationMatrix2D(center, degree, 1.0)
         self.image = cv2.warpAffine(self.image, rot_mat, (col, row))
         return self
 
-    def zero_padd(self, padd_size=[10, 0, 30, 30]):
+    def zero_padd(self, padd_size=[10, 10, 30, 30]):
+        padd_size = list(map(int, padd_size))
+        assert (np.alltrue([step >= 0 for step in padd_size]))
         # padd_size=[left, right, top, bottom]
-
-        left_zeros = np.ones((self.image.shape[0], padd_size[0], 3), np.uint8)
+        channel = self.channel()
+        left_zeros = np.ones((self.image.shape[0], padd_size[0], channel), np.uint8)
         self.image = np.concatenate((left_zeros, self.image), axis=1)
 
-        right_zeros = np.ones((self.image.shape[0], padd_size[1], 3), np.uint8)
+        right_zeros = np.ones((self.image.shape[0], padd_size[1], channel), np.uint8)
         self.image = np.concatenate((self.image, right_zeros), axis=1)
 
-        top_zeros = np.ones((padd_size[2], self.image.shape[1], 3), np.uint8)
+        top_zeros = np.ones((padd_size[2], self.image.shape[1], channel), np.uint8)
         self.image = np.concatenate((top_zeros, self.image), axis=0)
 
-        bottom_zeros = np.ones((padd_size[3], self.image.shape[1], 3), np.uint8)
+        bottom_zeros = np.ones((padd_size[3], self.image.shape[1], channel), np.uint8)
         self.image = np.concatenate((self.image, bottom_zeros), axis=0)
         return self
 
     def add_noise(self, noise="salt&pepper"):
-        if self.image.ndim > 2:
+        if self.channel() > 2:
             row, col, ch = self.image.shape
         else:
             row, col = self.image.shape
@@ -167,10 +178,11 @@ class HIP:
             self.image = noisy_image.astype(np.uint8)
         return self
 
-    def gradient(self, visualize = False):
+    def gradient(self):
         image = self.image
         if image.ndim > 2:
-            image = self.rgb_to_gray()
+            self.rgb_to_gray()
+            image = self.image
         dx = np.zeros(shape=image.shape, dtype=np.uint8)
         dy = np.zeros(shape=image.shape, dtype=np.uint8)
 
@@ -181,11 +193,6 @@ class HIP:
             for col in cols:
                 dx[row][col] = abs(-1.0 * image[row][col-1] + 1.0 * image[row][col+1])
                 dy[row][col] = abs(-1.0 * image[row-1][col] + 1.0 * image[row+1][col])
-
-        if visualize:
-            cv2.imshow("dx", dx)
-            cv2.imshow("dy", dy)
-            cv2.waitKey(0)
         return dx, dy
 
     def magnitude(self):
@@ -225,5 +232,5 @@ class HIP:
                 edge_image[row][col] = np.sqrt(dx**2 + dy**2)
         return edge_image
 
-
-
+    def get_path(self):
+        return self.path
